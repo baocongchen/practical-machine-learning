@@ -1,0 +1,107 @@
+---
+title: "Course Project Prediction"
+author: "Thong B. Tran"
+date: "March 2, 2016"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+---
+
+# .Load Data and necessary package to build models
+
+We'll load the data and visualize the distribution of our dependant variable
+
+```{r echo=T, message=FALSE}
+train <- read.csv('C:/Users/Tran/Desktop/MOOC/Edx/practical-machine-learning/pml-training.csv')
+test <- read.csv('C:/Users/Tran/Desktop/MOOC/Edx/practical-machine-learning/pml-testing.csv')
+library(caret)
+library(gbm)
+library(caTools)
+library(outliers)
+ggplot(train, aes(x=classe)) + geom_bar(position='identity')
+dim(train); dim(test)
+```
+
+
+# .Preprocess the data
+
+1.Remove variables that have zero or near zero variance because they're not so useful for predicting the outcome. 
+
+```{r}
+colDelIndex <- nearZeroVar(train)
+train <- train[,-colDelIndex]
+trainIndices <- train$X
+```
+
+2.Remove irrelevant columns (features) that do not contribute to the accuracy of the predictive models
+
+```{r}
+#Remove the timestamps
+train <- dplyr::select(train, -c(X:cvtd_timestamp))
+#Remove columns whose percentage of NA values is less than 5% of the total cells its column         
+colIndices <- colMeans(is.na(train)) <= 0.05
+train <- train[,colIndices]
+```
+
+3.Replace the outliers of each column in the data with its median
+
+```{r}
+
+for (i in 1:55) {
+  if (class(train[1,i]) %in% c('numeric','integer')) {
+    for (n in 1:20) {
+      train[,i] <- rm.outlier(train[,i], fill = TRUE) 
+    }
+  }
+}
+```
+
+# .Build 3 models and perform cross validation
+
+Randomly select from the training data 3 sub-samples for cross validation
+We'll use *randorm forest*, *generalized boosted model*, and *linear discriminant analysis* methods.
+
+```{r results='hide', warning=FALSE, message=FALSE}
+meanrf <- 0
+meangbm <- 0
+meanlda <- 0 
+fold_length <- 3
+for (i in 1:fold_length) {
+  set.seed(3000+i)
+  sampleIndices <- sample(trainIndices, 1000)
+  dataNSample <- train[sampleIndices,]
+  rowIndices <- sample.split(dataNSample$classe,SplitRatio = .7)
+  trainNSample <- dataNSample[rowIndices,]
+  rf  <- train(classe~., data = trainNSample, method="rf")
+  gbm <- train(classe~., data = trainNSample, method="gbm")
+  lda <- train(classe~., data = trainNSample, method="lda")
+  rfpred  <- predict(rf, trainNSample)
+  gbmpred <- predict(gbm, trainNSample)
+  ldapred <- predict(lda, trainNSample)
+  #Test the performance of each models
+  testNSample <- dataNSample[-rowIndices,]
+  rfTestpred <- predict(rf, testNSample)
+  gbmTestpred <- predict(gbm, testNSample)
+  ldaTestpred <- predict(lda, testNSample)
+  #Calculate the accuracy of each model by adding them incrementally
+  meanrf <-  meanrf + confusionMatrix(rfTestpred, testNSample$classe)$overall['Accuracy'][[1]]
+  meangbm <- meangbm + confusionMatrix(gbmTestpred, testNSample$classe)$overall['Accuracy'][[1]]
+  meanlda <- meanlda + confusionMatrix(ldaTestpred, testNSample$classe)$overall['Accuracy'][[1]]
+}
+```
+
+# .Evaluate the result
+Print the average accuracy of each model after performing cross validation 
+
+```{r}
+print(c(meanrf=meanrf/fold_length, meangbm=meangbm/fold_length, meanlda=meanlda/fold_length))
+```
+
+The result shows that `rf` has done the best job in predicting the outcome.
+Now let's use our best model to predict the `classe` of `test` data
+
+```{r}
+rfFinalTestpred <- predict(rf, test)
+rfFinalTestpred
+```
