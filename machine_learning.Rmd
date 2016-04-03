@@ -4,8 +4,9 @@ author: "Thong B. Tran"
 date: "March 2, 2016"
 output:
   html_document:
-    number_sections: true
     toc: true
+    theme: lumen
+    highlight: textmate
 ---
 
 # Load Data and necessary package to build models
@@ -58,7 +59,7 @@ for (i in 1:55) {
 
 # Build 3 models and perform cross validation
 
-Randomly select from the training data 3 sub-samples for cross validation
+Randomly select from the training data 3 sub-samples for cross validation. 
 We'll use *randorm forest*, *generalized boosted model*, and *linear discriminant analysis* methods.
 
 ```{r results='hide', warning=FALSE, message=FALSE}
@@ -91,14 +92,14 @@ for (i in 1:fold_length) {
 ```
 
 # Evaluate the result
-Print the average accuracy of each model after performing cross validation 
+Print the average accuracy of each model after performing cross validation. 
 
 ```{r}
 print(c(meanrf=meanrf/fold_length, meangbm=meangbm/fold_length, meanlda=meanlda/fold_length))
 ```
 
 The result shows that `rf` has done the best job in predicting the outcome.
-Now let's use our best model to predict the `classe` of `test` data
+Now let's use our best model to predict the `classe` of `test` data.
 
 ```{r}
 rfFinalTestpred <- predict(rf, test)
